@@ -1,0 +1,29 @@
+#!/bin/bash
+
+function testVar {
+  if test -z "$1"; then
+    echo "$2 environment variable not set"
+    exit 1
+  fi
+}
+testVar "${user}" user
+testVar "${pass}" pass
+testVar "${db}" db
+
+baseUrl="https://${user}:${pass}@${user}.cloudant.com/${db}/"
+ctHdr='Content-Type: application/json'
+curl='curl -s'
+
+function removeQuotes {
+  sed 's/"//g'
+}
+
+id=$($curl -X POST "${baseUrl}" -H "${ctHdr}" -d '{"name": "john", "age": 35}' | jq '.id' | removeQuotes)
+echo "The new document's ID is $id."
+rev=$($curl "${baseUrl}${id}" | jq '._rev' | removeQuotes)
+echo "The first revision is $rev."
+rev2=$($curl -X PUT "${baseUrl}${id}" -H "${ctHdr}" -d "{\"name\": \"john\", \"age\": 36, \"_rev\": \"${rev}\"}" | jq '.rev' | removeQuotes)
+echo "The second revision is ${rev2}."
+echo 'Now we will delete the document. This is the response we got:'
+$curl -X DELETE "${baseUrl}${id}?rev=${rev2}" | jq '.'
+
