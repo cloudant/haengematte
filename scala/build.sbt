@@ -1,4 +1,4 @@
-name := "Cloudant CRUD Demo"
+name := "haengematte"
 
 version := "1.0.0"
 
