@@ -8,9 +8,10 @@ user = ENV['user']
 pass = ENV['pass']
 db = ENV['db']
 
-baseUriStr = "http://#{user}:#{pass}@#{user}.cloudant.com/#{db}/"
+baseUriStr = "https://#{user}:#{pass}@#{user}.cloudant.com/#{db}/"
 baseUri = URI.parse(baseUriStr)
 http = Net::HTTP.new(baseUri.host, baseUri.port)
+http.use_ssl = true
 
 request = Net::HTTP::Post.new(baseUri.request_uri)
 request.basic_auth(user, pass)
