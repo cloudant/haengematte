@@ -1,0 +1,10 @@
+#!/bin/bash
+
+libcurlFlags=`curl-config --cc --cflags`
+libcurl=`curl-config --libs`
+libjson='-I/usr/include/json/ -ljson'
+
+command="$libcurlFlags -o crud crud.c $libcurl $libjson"
+echo $command
+$command
+
