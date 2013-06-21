@@ -1,0 +1,3 @@
+user='joe';
+pass='secret';
+db='joedb';
