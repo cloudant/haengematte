@@ -45,7 +45,6 @@ public class Crud {
 		} catch(IOException e) {
 			System.out.println("An error occurred while creating a new document.");
 			System.out.println(e.getMessage());
-			System.exit(-1);
 		} finally {
 			// release the connection
 		  	httpPost.releaseConnection();
@@ -76,7 +75,6 @@ public class Crud {
 		} catch(IOException e) {
 			System.out.println("An error occurred while reading a document.");
 			System.out.println(e.getMessage());
-			System.exit(-1);
 		} finally {
 			// release the connection
 			httpGet.releaseConnection();
@@ -113,8 +111,7 @@ public class Crud {
 		  	System.out.println("The revision after the update request is " + rev + ".");
 		} catch (IOException e) {
 			System.out.println("An error occurred while updating a document.");
-			System.out.println(e.getMessage());
-			System.exit(-1);			
+			System.out.println(e.getMessage());		
 		} finally {
 			// release the connection
 			httpPut.releaseConnection();
@@ -139,8 +136,7 @@ public class Crud {
 		  	System.out.println(deleteResp.toString());
 		} catch (IOException e) {
 			System.out.println("An error occurred while deleting a document.");
-			System.out.println(e.getMessage());
-			System.exit(-1);			
+			System.out.println(e.getMessage());			
 		} finally {
 			// release the connection
 			httpDelete.releaseConnection();
