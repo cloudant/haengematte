@@ -1,7 +1,6 @@
 package com.cloudant;
 
 import java.io.*;
-
 import org.apache.http.*;
 import org.apache.http.client.methods.*;
 import org.apache.http.entity.*;
@@ -12,57 +11,168 @@ import org.apache.commons.codec.binary.Base64;
 
 public class Crud {
 	
-	private static String user, pass, db;
+	private static String user, db, pass, baseUrl;
+	private static DefaultHttpClient httpClient = new DefaultHttpClient();
+	private static ObjectMapper mapper = new ObjectMapper();
 	
+	// Common method to base64 encode the username and password combo.  Adds the encoded string to the passed request.
 	private static void addAuth(HttpRequest req) {
-		final String encodedUserPass = new String(Base64.encodeBase64((user + ":" + pass).getBytes()));
+		String encodedUserPass = new String(Base64.encodeBase64((user + ":" + pass).getBytes()));
 		req.setHeader("Authorization", "Basic " + encodedUserPass);
-		
 	}
 	
-	public static void main(String[] args) throws Exception {
-		user = System.getenv().get("user");
-		pass = System.getenv().get("pass");
-		db = System.getenv().get("db");
-		final String baseUrl = "https://" + user + ":" + pass + "@" + user + ".cloudant.com/" + db + "/";
-		final DefaultHttpClient httpClient = new DefaultHttpClient();
-		final HttpPost httpPost = new HttpPost(baseUrl);
-		final HttpEntity entity = new StringEntity("{ \"name\": \"john\", \"age\": 35 }", ContentType.APPLICATION_JSON);
-		httpPost.setEntity(entity);
+	// Create a new document
+	private static String create(String jsonDoc) {
+		// initialize the POST with the base URL
+		HttpPost httpPost = new HttpPost(baseUrl);
+
+		// add the JSON payload (i.e. the new document)
+		httpPost.setEntity(new StringEntity(jsonDoc, ContentType.APPLICATION_JSON));
+
+		// add your credentials to the request
 		addAuth(httpPost);
-		final HttpResponse postResp = httpClient.execute(httpPost);
-		final InputStream is = postResp.getEntity().getContent();
-		final ObjectMapper mapper = new ObjectMapper();
-	  final ObjectNode postRespDoc = mapper.readValue(is, ObjectNode.class);
-	  final String id = ((TextNode)postRespDoc.get("id")).getTextValue();
-	  System.out.println("The new document's ID is " + id + ".");
-	  httpPost.releaseConnection();
-	  final HttpGet httpGet = new HttpGet(baseUrl + id);
-	  addAuth(httpGet);
-	  final HttpResponse getResp = httpClient.execute(httpGet);
-	  final ObjectNode doc1 = mapper.readValue(getResp.getEntity().getContent(), ObjectNode.class);
-	  final String rev1 = ((TextNode)doc1.get("_rev")).getTextValue();
-	  httpGet.releaseConnection();
-	  System.out.println("The first revision is " + rev1 + ".");
-	  final HttpPut httpPut = new HttpPut(baseUrl + id);
-	  addAuth(httpPut);
-	  doc1.put("_rev", rev1);
-	  doc1.put("age", 36);
-	  final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-	  mapper.writeValue(baos, doc1);
-	  final String doc2Str = baos.toString();
-	  final HttpEntity doc2Entity = new StringEntity(doc2Str, ContentType.APPLICATION_JSON);
-	  httpPut.setEntity(doc2Entity);
-	  final HttpResponse putResp = httpClient.execute(httpPut);
-	  final ObjectNode putRespDoc = mapper.readValue(putResp.getEntity().getContent(), ObjectNode.class);
-	  final String rev2 = ((TextNode)putRespDoc.get("rev")).getTextValue();
-	  httpPut.releaseConnection();
-	  System.out.println("The second revision is " + rev2 + ".");
-	  final HttpDelete httpDelete = new HttpDelete(baseUrl + id + "?rev=" + rev2);
-	  addAuth(httpDelete);
-	  final HttpResponse deleteResp = httpClient.execute(httpDelete);
-	  httpGet.releaseConnection();
-	  System.out.println("Now we will delete the document. The response is... ");
-	  System.out.println(deleteResp.toString());		
+
+		// initialize the id we want to return
+		String id = "";
+
+		try {
+			// send the request and read the response
+			HttpResponse postResp = httpClient.execute(httpPost);
+			InputStream is = postResp.getEntity().getContent();
+		  	ObjectNode postRespDoc = mapper.readValue(is, ObjectNode.class);
+		  	id = ((TextNode)postRespDoc.get("id")).getTextValue();
+		  	System.out.println("The new document's ID is " + id + ".");
+		} catch(IOException e) {
+			System.out.println("An error occurred while creating a new document.");
+			System.out.println(e.getMessage());
+			System.exit(-1);
+		} finally {
+			// release the connection
+		  	httpPost.releaseConnection();
+		}
+
+	  	// return the id of the new document created
+	  	return id;
+	}
+
+	// Read a document
+	private static ObjectNode read(String id) {
+		// initialize the GET with the base URL and the document ID
+		HttpGet httpGet = new HttpGet(baseUrl + id);
+
+		// add your credentials to the request
+	  	addAuth(httpGet);
+
+	  	// initialize the document we want to return
+	  	ObjectNode doc = null;
+
+	  	try {
+		  	// send the request and read the response
+		  	HttpResponse getResp = httpClient.execute(httpGet);
+		  	doc = mapper.readValue(getResp.getEntity().getContent(), ObjectNode.class);
+		  	String rev = ((TextNode)doc.get("_rev")).getTextValue();
+		  	httpGet.releaseConnection();
+		  	System.out.println("The revision after this read request is " + rev + ".");
+		} catch(IOException e) {
+			System.out.println("An error occurred while reading a document.");
+			System.out.println(e.getMessage());
+			System.exit(-1);
+		} finally {
+			// release the connection
+			httpGet.releaseConnection();
+		}
+
+		// return the read doc
+		return doc;
+	}
+
+	// Update a document
+	private static String update(ObjectNode doc) {
+		// pull the id from the document.  We'll need that for the PUT request
+		String id = ((TextNode)doc.get("_id")).getTextValue();
+
+		// initialize the PUT with the base URL and the document ID
+		HttpPut httpPut = new HttpPut(baseUrl + id);
+
+		// add your credentials to the request
+		addAuth(httpPut);
+
+		// initialize the rev we want to return
+		String rev = "";
+
+		try {
+			// convert the doc back to a StringEntity
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			mapper.writeValue(baos, doc);
+		  	httpPut.setEntity(new StringEntity(baos.toString(), ContentType.APPLICATION_JSON));
+
+		  	// send the request and read the response
+		  	HttpResponse putResp = httpClient.execute(httpPut);
+		  	ObjectNode putRespDoc = mapper.readValue(putResp.getEntity().getContent(), ObjectNode.class);
+		  	rev = ((TextNode)putRespDoc.get("rev")).getTextValue();
+		  	System.out.println("The revision after the update request is " + rev + ".");
+		} catch (IOException e) {
+			System.out.println("An error occurred while updating a document.");
+			System.out.println(e.getMessage());
+			System.exit(-1);			
+		} finally {
+			// release the connection
+			httpPut.releaseConnection();
+		}
+
+	  	// return the rev of the updated doc
+	  	return rev;
+	}
+
+	// Delete a document
+	private static void delete(String id, String rev) {
+		// initialize the DELETE with the base URL, id, and rev
+	  	HttpDelete httpDelete = new HttpDelete(baseUrl + id + "?rev=" + rev);
+
+	  	// add your credentials to the request
+	  	addAuth(httpDelete);
+
+	  	try {
+		  	// send the request, read the response. and release the connection
+		  	HttpResponse deleteResp = httpClient.execute(httpDelete);
+		  	System.out.println("The response from the delete request is... ");
+		  	System.out.println(deleteResp.toString());
+		} catch (IOException e) {
+			System.out.println("An error occurred while deleting a document.");
+			System.out.println(e.getMessage());
+			System.exit(-1);			
+		} finally {
+			// release the connection
+			httpDelete.releaseConnection();
+		}
+	}
+	
+	public static void main(String[] args) {
+		// read the user's credentials
+		System.out.print("Enter your Cloudant username: ");
+		user = System.console().readLine();
+		System.out.print("Enter your Cloudant password: ");
+		pass = new String(System.console().readPassword());
+		System.out.print("Enter your database name: ");
+		db = System.console().readLine();
+
+		// initialize the base URL using the user's info
+		baseUrl = "https://" + user + ":" + pass + "@" + user + ".cloudant.com/" + db + "/";
+
+		// this is our example doc we want to create
+		String newDoc = "{ \"name\": \"john\", \"age\": 35 }";
+
+		// create a new document
+		String id = create(newDoc);
+
+		// read the document back
+		ObjectNode doc = read(id);
+
+		// update the doc and then commit to the database
+	  	doc.put("age", 36);
+	  	String rev = update(doc);
+
+	  	// delete the document from the database
+	  	delete(id, rev);					
 	}
 }
