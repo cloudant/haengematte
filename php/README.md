@@ -7,8 +7,8 @@ How to run
 ```
 $ composer install
 ```
-3. Set environment variables user, pass, and db
-4. php crud.php
+4. Set environment variables user, pass, and db
+5. php crud.php
 
 
 
