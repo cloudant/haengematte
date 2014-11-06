@@ -7,6 +7,3 @@ How to run
 `$ composer install`
 4. Create a `.env` file with values for `user`, `pass`, and `db` (e.g. `user=mary`) on separate lines
 5. php crud.php
-
-
-
