@@ -3,6 +3,9 @@ require 'vendor/autoload.php';
 
 use Guzzle\Http\Client;
 
+Dotenv::load(realpath(__DIR__ ));
+Dotenv::required(array('user', 'pass', 'db'));
+
 $user = getenv('user');
 $pass = getenv('pass');
 $db = getenv('db');
