@@ -1,6 +1,8 @@
 {
     "php": ">=5.3.3",
     "require": {
-        "guzzle/guzzle": "~3.7"
+        "guzzle/guzzle": "~3.7",
+        "vlucas/phpdotenv": "~1.0"
+
     }
 }
