@@ -1,4 +1,5 @@
 {
+    "php": ">=5.3.3",
     "require": {
         "guzzle/guzzle": "~3.7"
     }
