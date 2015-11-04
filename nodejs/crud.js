@@ -1,95 +1,84 @@
-// you'll need `request`. 
-// Run `npm install request` to get it.
-var request = require('request');
+if (!process.env.CLOUDANT_URL) {
+  console.error("Please put the URL of your Cloudant instance in an environment variable 'CLOUDANT_URL'")
+  process.exit(1)
+}
 
-// establish an authenticated connection
-var base_url = "https://"
-              +process.env.user
-              +":"
-              +process.env.pass
-              +"@"
-              +process.env.user
-              +".cloudant.com";
+// load the Cloudant library
+var async = require('async'),
+  Cloudant = require('cloudant'),
+  cloudant = Cloudant({url: process.env.CLOUDANT_URL}),
+  dbname = 'crud',
+  db = null,
+  doc = null;
 
-request.get(base_url, function(err, res, body){
-  if(err){
-    console.log("An error happened: ", err);
-  }else{
-    console.log("These are some details about our account: ", body);
 
-    // create a database
-    var db_url = [base_url, process.env.db].join('/');
-    request.put(db_url, function(err, res, body){
-      if(err){
-        console.log("An error happened: ", err);
-      }else{
-        console.log("You just made a database: ", body);
+// create a database
+var createDatabase = function(callback) {
+  console.log("Creating database '" + dbname  + "'");
+  cloudant.db.create(dbname, function(err, data) {
+    console.log("Error:", err);
+    console.log("Data:", data);
+    db = cloudant.db.use(dbname);
+    callback(err, data);
+  });
+};
 
-        // create a document
-        var doc_id = "test_doc"
-        request.post({
-          url: db_url,
-          json: {
-            _id: doc_id,
-            good_life_advice: "Buy pizza. Pay with snakes."
-          }
-        }, function(err, res, body){
-          if(err){
-            console.log("An error happened: ", err);
-          }else{
-            console.log("\nYou just made a document: ", body);
+// create a document
+var createDocument = function(callback) {
+  console.log("Creating document 'mydoc'");
+  // we are specifying the id of the document so we can update and delete it later
+  db.insert({ _id: "mydoc", a:1, b: "two"}, function(err, data) {
+    console.log("Error:", err);
+    console.log("Data:", data);
+    callback(err, data);
+  });
+};
 
-            // get a document
-            var doc_url = [db_url, doc_id].join('/')
-              , doc = {};
-            request.get(doc_url, function(err, res, body){
-              if(err){
-                console.log("An error happened: ", err);
-              }else{
-                console.log("\nHere's that document: ", body);
-                // `request` will only consider the response body a JSON 
-                // if you send a JSON in the request.
-                doc = JSON.parse(body);
+// read a document
+var readDocument = function(callback) {
+  console.log("Reading document 'mydoc'");
+  db.get("mydoc", function(err, data) {
+    console.log("Error:", err);
+    console.log("Data:", data);
+    // keep a copy of the doc so we know its revision token
+    doc = data;
+    callback(err, data);
+  });
+};
 
-                // update a document
-                doc.good_life_advice = "It's simple. Kill the Batman."
-                request.put({
-                  url: doc_url,
-                  json: doc
-                }, function(err, res, body){
-                  if(err){
-                    console.log("An error happened: ", err);
-                  }else{
-                    console.log("\nYou just changed a document: ", body);
-                    doc._rev = body.rev; // keep our local doc up to date
+// update a document
+var updateDocument = function(callback) {
+  console.log("Updating document 'mydoc'");
+  // make a change to the document, using the copy we kept from reading it back
+  doc.c = true;
+  db.insert(doc, function(err, data) {
+    console.log("Error:", err);
+    console.log("Data:", data);
+    // keep the revision of the update so we can delete it
+    doc._rev = data.rev;
+    callback(err, data);
+  });
+};
 
-                    // delete a document
-                    request.del({
-                      url: doc_url,
-                      qs: {rev: doc._rev}
-                    }, function(err, res, body){
-                      if(err){
-                        console.log("An error happened: ", err);
-                      }else{
-                        console.log("\nYou just deleted a document: ", body);
-                        
-                        // delete a database
-                        request.del(db_url, function(err, res, body){
-                          if(err){
-                            console.log("An error happened: ", err);
-                          }else{
-                            console.log("\nYou just deleted a database: ", body);
-                          }
-                        });
-                      }
-                    });
-                  }
-                });
-              }
-            });
-          }
-        });
-      }
-    });
-  }
-});
+// deleting a document
+var deleteDocument = function(callback) {
+  console.log("Deleting document 'mydoc'");
+  // supply the id and revision to be deleted
+  db.destroy(doc._id, doc._rev, function(err, data) {
+    console.log("Error:", err);
+    console.log("Data:", data);
+    callback(err, data);
+  });
+};
+
+// deleting the database document
+var deleteDatabase = function(callback) {
+  console.log("Creating database '" + dbname  + "'");
+  cloudant.db.destroy(dbname, function(err, data) {
+    console.log("Error:", err);
+    console.log("Data:", data);
+    callback(err, data);
+  });
+};
+
+async.series([createDatabase, createDocument, readDocument, updateDocument, deleteDocument, deleteDatabase]);
